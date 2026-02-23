@@ -1,0 +1,5 @@
+{
+  "name": "智能看板",
+  "description": "智能餐厅管理系统，包含预订管理、日历视图、包厢管理及AI菜单生成功能。",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-primary: #11d452;
+  --color-dinner-accent: #6366f1;
+  --color-background-light: #f6f8f6;
+  --color-background-dark: #102216;
+}
+
+@layer base {
+  body {
+    @apply font-sans bg-background-light text-slate-900;
+  }
+}
+
+.dark body {
+  @apply bg-background-dark text-slate-100;
+}
