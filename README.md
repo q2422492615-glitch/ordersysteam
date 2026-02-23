@@ -18,3 +18,9 @@ View your app in AI Studio: https://ai.studio/apps/b562ecd5-834b-41c6-b270-c3cc9
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Default Login Credentials
+
+After initializing the Supabase database with the provided SQL script (`supabase/migrations/20260222_init.sql`), use the following credentials to log in:
+- **Username:** `hyxy`
+- **Password:** `hyxy123`

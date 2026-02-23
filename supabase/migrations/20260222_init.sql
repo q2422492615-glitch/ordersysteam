@@ -21,5 +21,5 @@ CREATE TABLE IF NOT EXISTS app_data (
 -- 默认管理员账户（用户名: admin，密码: admin123）
 -- 如需修改密码，直接改下方的 'admin123' 即可
 INSERT INTO users (username, password)
-VALUES ('admin', 'admin123')
+VALUES ('hyxy', 'hyxy123')
 ON CONFLICT (username) DO NOTHING;
