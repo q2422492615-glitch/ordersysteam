@@ -1,0 +1,17 @@
+{
+    "name": "园禾智能看板",
+    "short_name": "园禾看板",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#ffffff",
+    "description": "智能餐厅管理系统",
+    "icons": [
+        {
+            "src": "/icons/logo.png",
+            "sizes": "192x192 512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
