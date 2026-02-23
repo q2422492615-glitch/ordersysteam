@@ -466,9 +466,24 @@ export default function App() {
                       <p className="text-xs text-slate-500">{res ? `已订: ${res.customerName}` : '空闲'}</p>
                     </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${res ? 'bg-slate-100 text-slate-400' : 'bg-primary/20 text-primary'}`}>
-                    {res ? '已订' : '空闲'}
-                  </span>
+                  {res ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm('确定要取消此预订吗？此操作不可逆。')) {
+                          setReservations(prev => prev.map(r => r.id === res.id ? { ...r, status: 'cancelled' } : r));
+                          addToast('预订已取消');
+                        }
+                      }}
+                      className="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-red-100 text-red-500 hover:bg-red-200 transition-colors"
+                    >
+                      取消预定
+                    </button>
+                  ) : (
+                    <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-primary/20 text-primary">
+                      空闲
+                    </span>
+                  )}
                 </div>
               );
             })}
