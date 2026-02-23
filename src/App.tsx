@@ -104,6 +104,31 @@ export default function App() {
   const [addingCategory, setAddingCategory] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'room' | 'res' | 'dish' | 'category'; id: string } | null>(null);
 
+  // PWA Install Prompt State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    } else {
+      addToast('如无法自动添加，请点击浏览器底部“分享”或菜单图标，选择“添加到主屏幕”', 'info');
+    }
+  };
+
   // Auth & Sync
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('admin-token'));
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -766,11 +791,11 @@ export default function App() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-rose-500 transition-colors text-sm font-bold"
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-primary transition-colors text-sm font-bold"
                 >
-                  <LogOut className="w-4 h-4" />
-                  <span>退出</span>
+                  <Settings className="w-4 h-4" />
+                  <span>设置</span>
                 </button>
               </div>
             </div>
@@ -894,6 +919,44 @@ export default function App() {
             <button type="submit" className="flex-[2] py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all">保存预订</button>
           </div>
         </form>
+      </Modal>
+
+      <Modal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} title="系统设置">
+        <div className="space-y-4">
+          <button
+            onClick={handleInstallClick}
+            className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-primary/10 group transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                <Download className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <p className="font-bold text-slate-800 dark:text-slate-200">添加到手机桌面</p>
+                <p className="text-xs text-slate-500">将系统安装到主屏幕，体验原生App</p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-primary" />
+          </button>
+
+          <button
+            onClick={() => {
+              setIsSettingsOpen(false);
+              handleLogout();
+            }}
+            className="w-full flex items-center justify-between p-4 bg-rose-50 dark:bg-rose-500/10 rounded-xl hover:bg-rose-100 dark:hover:bg-rose-500/20 group transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center text-rose-500">
+                <LogOut className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <p className="font-bold text-rose-600 dark:text-rose-400">退出登录</p>
+                <p className="text-xs text-rose-500/70">清除本地缓存并返回登录页</p>
+              </div>
+            </div>
+          </button>
+        </div>
       </Modal>
 
       <Modal isOpen={!!editingRoom} onClose={() => setEditingRoom(null)} title={editingRoom?.id ? '编辑包厢' : '新增包厢'}>
