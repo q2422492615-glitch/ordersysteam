@@ -977,7 +977,15 @@ export default function App() {
                       onClick={() => {
                         const resId = selectedResIdForMenu;
                         if (!resId) return;
-                        setReservations(prev => prev.map(r => r.id === resId ? { ...r, menu: [...(r.menu || []), dish] } : r));
+                        setReservations(prev => prev.map(r => {
+                          if (r.id !== resId) return r;
+                          const currentMenu = r.menu || [];
+                          const coldIdx = currentMenu.findIndex(d => d.category === '冷菜');
+                          const insertIdx = coldIdx >= 0 ? coldIdx + 1 : 0;
+                          const newMenu = [...currentMenu];
+                          newMenu.splice(insertIdx, 0, dish);
+                          return { ...r, menu: newMenu };
+                        }));
                         addToast(`已添加: ${dish.name}`);
                         setIsAddingFromLibrary(false);
                       }}
