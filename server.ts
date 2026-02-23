@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import { createClient } from "@supabase/supabase-js";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -7,6 +6,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+// Define __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -16,96 +16,91 @@ const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   console.error("Missing SUPABASE_URL or SUPABASE_ANON_KEY in environment variables.");
-  process.exit(1);
+  // Don't exit process in serverless, just log
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
-async function startServer() {
-  const app = express();
-  const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+const app = express();
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
-  app.use(express.json());
+app.use(express.json());
 
-  // Auth Middleware (very simple for this demo)
-  const auth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const authHeader = req.headers.authorization;
-    if (authHeader === "Bearer admin-token") {
-      next();
-    } else {
-      res.status(401).json({ error: "Unauthorized" });
-    }
-  };
+// Auth Middleware
+const auth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader === "Bearer admin-token") {
+    next();
+  } else {
+    res.status(401).json({ error: "Unauthorized" });
+  }
+};
 
-  // API Routes
-  app.post("/api/login", async (req, res) => {
-    const { username, password } = req.body;
-    
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', username)
-      .eq('password', password)
-      .single();
+// API Routes
+app.post("/api/login", async (req, res) => {
+  const { username, password } = req.body;
 
-    if (data) {
-      res.json({ token: "admin-token", username: data.username });
-    } else {
-      res.status(401).json({ error: "Invalid credentials" });
-    }
-  });
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('username', username)
+    .eq('password', password)
+    .single();
 
-  app.get("/api/data", async (req, res) => {
-    const { data, error } = await supabase
-      .from('app_data')
-      .select('data')
-      .eq('id', 1)
-      .single();
-      
-    if (error && error.code !== 'PGRST116') { // PGRST116 is 'not found'
-      console.error("Error fetching data:", error);
-      res.status(500).json({ error: "Internal Server Error" });
-      return;
-    }
-    
-    res.json(data ? data.data : null);
-  });
+  if (data) {
+    res.json({ token: "admin-token", username: data.username });
+  } else {
+    res.status(401).json({ error: "Invalid credentials" });
+  }
+});
 
-  app.post("/api/data", auth, async (req, res) => {
-    const payload = req.body;
-    const { error } = await supabase
-      .from('app_data')
-      .upsert({ id: 1, data: payload }, { onConflict: 'id' });
-      
-    if (error) {
-      console.error("Error saving data:", error);
-      res.status(500).json({ error: "Failed to save data" });
-      return;
-    }
-    res.json({ success: true });
-  });
+app.get("/api/data", async (req, res) => {
+  const { data, error } = await supabase
+    .from('app_data')
+    .select('data')
+    .eq('id', 1)
+    .single();
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
+  if (error && error.code !== 'PGRST116') { // PGRST116 is 'not found'
+    console.error("Error fetching data:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+    return;
+  }
+
+  res.json(data ? data.data : null);
+});
+
+app.post("/api/data", auth, async (req, res) => {
+  const payload = req.body;
+  const { error } = await supabase
+    .from('app_data')
+    .upsert({ id: 1, data: payload }, { onConflict: 'id' });
+
+  if (error) {
+    console.error("Error saving data:", error);
+    res.status(500).json({ error: "Failed to save data" });
+    return;
+  }
+  res.json({ success: true });
+});
+
+// Vite middleware for local development ONLY
+if (process.env.NODE_ENV !== "production" && process.env.VERCEL !== "1") {
+  // We use dynamic import so Vite is strictly excluded from Vercel Serverless builds
+  import('vite').then(async (viteModule) => {
+    const vite = await viteModule.createServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    app.use(express.static(path.join(__dirname, "dist")));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "dist", "index.html"));
-    });
-  }
 
-    if (process.env.NODE_ENV !== "production") {
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
-  }
-
-  return app;
+  }).catch(err => {
+    console.error("Failed to start Vite middleware", err);
+  });
 }
 
-export default startServer();
+// Vercel Serverless Export
+export default app;
