@@ -91,6 +91,7 @@ export default function App() {
   ]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [currentCalendarMonth, setCurrentCalendarMonth] = useState(new Date());
   const [menuSearch, setMenuSearch] = useState('');
   const [categories, setCategories] = useState<string[]>(['鸡', '鸭', '猪肉', '牛肉', '海鲜', '蔬菜', '甜点', '其他']);
   const [selectedResIdForMenu, setSelectedResIdForMenu] = useState<string | null>(null);
@@ -413,6 +414,10 @@ export default function App() {
       const dataUrl = await toPng(menuRef.current, {
         cacheBust: true,
         backgroundColor: '#fff',
+        pixelRatio: 2, // Better resolution
+        style: {
+          transform: 'none' // Prevent translation issues
+        },
         filter: (node: any) => {
           if (node.classList && node.classList.contains('no-export')) {
             return false;
@@ -582,6 +587,27 @@ export default function App() {
   };
 
   const renderCalendar = () => {
+    const year = currentCalendarMonth.getFullYear();
+    const month = currentCalendarMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const monthStr = `${year}年${month + 1}月`;
+
+    const handlePrevMonth = () => {
+      setCurrentCalendarMonth(new Date(year, month - 1, 1));
+    };
+
+    const handleNextMonth = () => {
+      // Limit to 6 months ahead
+      const today = new Date();
+      const maxDate = new Date(today.getFullYear(), today.getMonth() + 6, 1);
+      const nextDate = new Date(year, month + 1, 1);
+      if (nextDate <= maxDate) {
+        setCurrentCalendarMonth(nextDate);
+      } else {
+        addToast('最多只能查看未来6个月的排期', 'info');
+      }
+    };
+
     return (
       <div className="space-y-6">
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
@@ -598,9 +624,9 @@ export default function App() {
 
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-800">
           <div className="flex items-center justify-between mb-6">
-            <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronLeft className="w-5 h-5" /></button>
-            <h2 className="text-lg font-bold">2026年2月</h2>
-            <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronRight className="w-5 h-5" /></button>
+            <button onClick={handlePrevMonth} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronLeft className="w-5 h-5" /></button>
+            <h2 className="text-lg font-bold">{monthStr}</h2>
+            <button onClick={handleNextMonth} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronRight className="w-5 h-5" /></button>
           </div>
           <div className="grid grid-cols-7 gap-1 text-center mb-2">
             {['日', '一', '二', '三', '四', '五', '六'].map(d => (
@@ -608,9 +634,10 @@ export default function App() {
             ))}
           </div>
           <div className="grid grid-cols-7 gap-1">
-            {Array.from({ length: 28 }, (_, i) => {
+            {Array.from({ length: daysInMonth }, (_, i) => {
               const day = i + 1;
-              const dateStr = `2026-02-${day.toString().padStart(2, '0')}`;
+              const currentMonthPadded = (month + 1).toString().padStart(2, '0');
+              const dateStr = `${year}-${currentMonthPadded}-${day.toString().padStart(2, '0')}`;
               const count = reservations.filter(r => r.date === dateStr && r.period === activePeriod && r.status !== 'cancelled').length;
               const isSelected = selectedDate === dateStr;
 
@@ -638,7 +665,13 @@ export default function App() {
               return (
                 <div
                   key={room.id}
-                  onClick={() => !res && setEditingReservation({ roomId: room.id, date: selectedDate, period: activePeriod })}
+                  onClick={() => {
+                    if (res) {
+                      setEditingReservation(res);
+                    } else {
+                      setEditingReservation({ roomId: room.id, date: selectedDate, period: activePeriod });
+                    }
+                  }}
                   className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between cursor-pointer hover:border-primary/50 transition-all"
                 >
                   <div className="flex items-center gap-3">
