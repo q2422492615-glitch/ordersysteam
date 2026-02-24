@@ -1185,10 +1185,10 @@ export default function App() {
                 return;
               }
 
-              // 检查 80% 相似度 (只在新增时或者改名时检查)
+              // 检查 60% 相似度 (只在新增时或者改名时检查)
               if (!editingDish.id || dishes.find(d => d.id === editingDish.id)?.name !== normalizedName) {
                 const similarDishes = dishes.filter(d =>
-                  d.id !== editingDish.id && getSimilarity(d.name, normalizedName) >= 0.8
+                  d.id !== editingDish.id && getSimilarity(d.name, normalizedName) >= 0.6
                 );
 
                 if (similarDishes.length > 0) {
