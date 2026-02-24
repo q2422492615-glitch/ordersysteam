@@ -181,45 +181,49 @@ export default function App() {
       try {
         // Rooms sync
         for (const room of rooms) {
-          await supabase.from('rooms').upsert({
+          const { error } = await supabase.from('rooms').upsert({
             id: room.id, // Clientside UUID
             name: room.name,
             capacity: room.capacity
           }, { onConflict: 'id' }).select();
+          if (error) console.error('Rooms Sync Error:', error.message);
         }
 
         // Categories sync
         for (const cat of categories) {
-          await supabase.from('categories').upsert({ name: cat }, { onConflict: 'name' });
+          const { error } = await supabase.from('categories').upsert({ name: cat }, { onConflict: 'name' });
+          if (error) console.error('Categories Sync Error:', error.message);
         }
 
         // Dishes sync
         for (const dish of dishes) {
-          await supabase.from('dishes').upsert({
+          const { error } = await supabase.from('dishes').upsert({
             id: dish.id,
             name: dish.name,
             price: dish.price,
             category_name: dish.category,
             tags: dish.tags
           }, { onConflict: 'id' });
+          if (error) console.error('Dishes Sync Error:', error.message);
         }
 
         // Reservations sync
         for (const res of reservations) {
-          await supabase.from('reservations').upsert({
+          const { error } = await supabase.from('reservations').upsert({
             id: res.id,
             room_id: res.roomId,
             customer_name: res.customerName,
             phone: res.phone || '',
-            pax: res.pax,
-            standard_price: res.standardPrice,
-            total_price: res.totalPrice,
+            pax: res.pax || 2, // Fallback to avoid null constraint errors
+            standard_price: res.standardPrice || 100, // Fallback to avoid null constraint errors
+            total_price: res.totalPrice || 200,
             period: res.period,
             reservation_date: res.date,
             notes: res.notes || '',
             status: res.status,
             menu: res.menu || []
           }, { onConflict: 'id' });
+          if (error) console.error('Reservations Sync Error:', error.message);
         }
       } catch (err) {
         console.error("Sync partial failure:", err);
@@ -414,12 +418,13 @@ export default function App() {
     }
   };
 
-  const handleDeleteRoom = (id: string) => {
+  const handleDeleteRoom = async (id: string) => {
     const hasHistory = reservations.some(r => r.roomId === id);
     if (hasHistory) {
       addToast('无法删除：该包厢已有预订记录', 'error');
     } else {
       setRooms(prev => prev.filter(r => r.id !== id));
+      await supabase.from('rooms').delete().eq('id', id);
       addToast('包厢已删除');
     }
     setConfirmDelete(null);
@@ -1347,21 +1352,27 @@ export default function App() {
           <div className="flex gap-3">
             <button onClick={() => setConfirmDelete(null)} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl">取消</button>
             <button
-              onClick={() => {
-                if (confirmDelete?.type === 'room') handleDeleteRoom(confirmDelete.id);
+              onClick={async () => {
+                const idToDelete = confirmDelete?.id;
+                if (!idToDelete) return;
+
+                if (confirmDelete?.type === 'room') await handleDeleteRoom(idToDelete);
                 else if (confirmDelete?.type === 'dish') {
-                  setDishes(prev => prev.filter(d => d.id !== confirmDelete.id));
+                  setDishes(prev => prev.filter(d => d.id !== idToDelete));
+                  await supabase.from('dishes').delete().eq('id', idToDelete);
                   addToast('菜品已删除');
                   setConfirmDelete(null);
                 }
                 else if (confirmDelete?.type === 'category') {
-                  setCategories(prev => prev.filter(c => c !== confirmDelete.id));
-                  setDishes(prev => prev.map(d => d.category === confirmDelete.id ? { ...d, category: '其他' } : d));
+                  setCategories(prev => prev.filter(c => c !== idToDelete));
+                  setDishes(prev => prev.map(d => d.category === idToDelete ? { ...d, category: '其他' } : d));
+                  await supabase.from('categories').delete().eq('name', idToDelete);
                   addToast('分类已删除');
                   setConfirmDelete(null);
                 }
                 else {
-                  setReservations(prev => prev.filter(r => r.id !== confirmDelete?.id));
+                  setReservations(prev => prev.filter(r => r.id !== idToDelete));
+                  await supabase.from('reservations').delete().eq('id', idToDelete);
                   addToast('预订已取消');
                   setEditingReservation(null);
                   setConfirmDelete(null);
