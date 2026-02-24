@@ -180,49 +180,61 @@ export default function App() {
     const syncData = async () => {
       try {
         // Rooms sync
-        for (const room of rooms) {
-          const { error } = await supabase.from('rooms').upsert({
-            id: room.id, // Clientside UUID
-            name: room.name,
-            capacity: room.capacity
-          }, { onConflict: 'id' }).select();
+        if (rooms.length > 0) {
+          const { error } = await supabase.from('rooms').upsert(
+            rooms.map(room => ({
+              id: room.id,
+              name: room.name,
+              capacity: room.capacity
+            })),
+            { onConflict: 'id' }
+          );
           if (error) console.error('Rooms Sync Error:', error.message);
         }
 
         // Categories sync
-        for (const cat of categories) {
-          const { error } = await supabase.from('categories').upsert({ name: cat }, { onConflict: 'name' });
+        if (categories.length > 0) {
+          const { error } = await supabase.from('categories').upsert(
+            categories.map(cat => ({ name: cat })),
+            { onConflict: 'name' }
+          );
           if (error) console.error('Categories Sync Error:', error.message);
         }
 
         // Dishes sync
-        for (const dish of dishes) {
-          const { error } = await supabase.from('dishes').upsert({
-            id: dish.id,
-            name: dish.name,
-            price: dish.price,
-            category_name: dish.category,
-            tags: dish.tags
-          }, { onConflict: 'id' });
+        if (dishes.length > 0) {
+          const { error } = await supabase.from('dishes').upsert(
+            dishes.map(dish => ({
+              id: dish.id,
+              name: dish.name,
+              price: dish.price,
+              category_name: dish.category,
+              tags: dish.tags
+            })),
+            { onConflict: 'id' }
+          );
           if (error) console.error('Dishes Sync Error:', error.message);
         }
 
         // Reservations sync
-        for (const res of reservations) {
-          const { error } = await supabase.from('reservations').upsert({
-            id: res.id,
-            room_id: res.roomId,
-            customer_name: res.customerName,
-            phone: res.phone || '',
-            pax: res.pax || 2, // Fallback to avoid null constraint errors
-            standard_price: res.standardPrice || 100, // Fallback to avoid null constraint errors
-            total_price: res.totalPrice || 200,
-            period: res.period,
-            reservation_date: res.date,
-            notes: res.notes || '',
-            status: res.status,
-            menu: res.menu || []
-          }, { onConflict: 'id' });
+        if (reservations.length > 0) {
+          const { error } = await supabase.from('reservations').upsert(
+            reservations.map(res => ({
+              id: res.id,
+              room_id: res.roomId,
+              customer_name: res.customerName,
+              phone: res.phone || '',
+              pax: res.pax || 2,
+              standard_price: res.standardPrice || 100,
+              total_price: res.totalPrice || 200,
+              period: res.period,
+              reservation_date: res.date,
+              notes: res.notes || '',
+              status: res.status,
+              menu: res.menu || []
+            })),
+            { onConflict: 'id' }
+          );
           if (error) console.error('Reservations Sync Error:', error.message);
         }
       } catch (err) {
