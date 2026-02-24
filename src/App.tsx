@@ -271,6 +271,20 @@ export default function App() {
     if (!editingReservation) return;
 
     const res = editingReservation as Reservation;
+
+    const isDuplicate = reservations.some(
+      r => r.roomId === res.roomId &&
+        r.date === res.date &&
+        r.period === res.period &&
+        r.status !== 'cancelled' &&
+        r.id !== res.id
+    );
+
+    if (isDuplicate) {
+      addToast('该包厢在此日期此时段已被预订', 'error');
+      return;
+    }
+
     if (res.id) {
       setReservations(prev => prev.map(r => r.id === res.id ? res : r));
       addToast('预订已更新');
@@ -321,27 +335,55 @@ export default function App() {
     // 从菜品库中选菜填充中间部分
     const fixedTotal = coldDishTotal + fixedEndTotal;
     const targetForMiddle = res.totalPrice - fixedTotal;
+    const maxTargetForMiddle = targetForMiddle * 1.15; // 允许超出 15%
     const middleDishes: Dish[] = [];
     let middleTotal = 0;
 
-    const shuffledDishes = [...dishes].sort(() => Math.random() - 0.5);
+    let availableDishes = [...dishes];
+    let hasGuestDish = false;
+
+    // 果餐标 >= 200，先强制加入一道各客菜
+    if (res.standardPrice >= 200) {
+      const guestDishes = availableDishes.filter(d => d.category === '各客');
+      if (guestDishes.length > 0) {
+        const randomGuestDish = guestDishes[Math.floor(Math.random() * guestDishes.length)];
+        const guestDishPrice = randomGuestDish.price * pax; // 各客类的总价计算规则为订单人数*各客菜价格
+
+        middleDishes.push({ ...randomGuestDish, price: guestDishPrice });
+        middleTotal += guestDishPrice;
+        hasGuestDish = true;
+
+        // 从可用列表中移除已选的各客菜避免重复
+        availableDishes = availableDishes.filter(d => d.id !== randomGuestDish.id);
+      }
+    }
+
+    const shuffledDishes = availableDishes.sort(() => Math.random() - 0.5);
     for (const dish of shuffledDishes) {
       let finalDish = dish;
       let dishPrice = dish.price;
 
       if (dish.category === '各客') {
-        if (res.standardPrice < 200) {
+        // 如果已经加过各客菜，或者餐标不够，不再添加
+        if (hasGuestDish || res.standardPrice < 200) {
           continue;
         }
         dishPrice = dish.price * pax;
         finalDish = { ...dish, price: dishPrice };
+        hasGuestDish = true; // 记录已选各客菜
       }
 
-      if (middleTotal + dishPrice <= targetForMiddle + 50) {
+      // 允许总价超出预订价 15%
+      if (middleTotal + dishPrice <= maxTargetForMiddle) {
         middleDishes.push(finalDish);
         middleTotal += dishPrice;
       }
-      if (middleTotal >= targetForMiddle - 50) break;
+
+      // 判断结束条件：达到目标价位附近即可停止（例如允许 50 元误差或者已非常接近 15% 溢价极限）
+      if (middleTotal >= targetForMiddle && middleTotal <= maxTargetForMiddle) {
+        // 我们可能在一个比较理想的范围内了，可以考虑 break，但也可能没达到正好，这里允许继续直到不超过 1.15
+        // 为了不让每次都卡在刚好低于标准，可以加点随机或者直接继续填满
+      }
     }
 
     const finalMenu = [coldDishEntry, ...middleDishes, ...fixedEndDishes];
@@ -386,10 +428,35 @@ export default function App() {
   const autoGenerateMenu = (totalPrice: number, standardPrice: number = 0, pax: number = 1) => {
     // Simple logic: pick dishes based on proportions and price
     const newMenu: Dish[] = [];
+    const maxTotalPrice = totalPrice * 1.15; // 允许超出 15%
+    let currentTotal = 0;
+
+    let availableDishes = [...dishes];
+    let hasGuestDish = false;
+
+    // 果餐标 >= 200，先强制加入一道各客菜
+    if (standardPrice >= 200) {
+      const guestDishes = availableDishes.filter(d => d.category === '各客');
+      if (guestDishes.length > 0) {
+        const randomGuestDish = guestDishes[Math.floor(Math.random() * guestDishes.length)];
+        const guestDishPrice = randomGuestDish.price * pax; // 各客类的总价计算规则为订单人数*各客菜价格
+
+        newMenu.push({ ...randomGuestDish, price: guestDishPrice });
+        currentTotal += guestDishPrice;
+        hasGuestDish = true;
+
+        // 从可用列表中移除已选的各客菜避免重复
+        availableDishes = availableDishes.filter(d => d.id !== randomGuestDish.id);
+      }
+    }
 
     proportions.forEach(prop => {
+      // 从剩余的部分计算目标金额
+      const remainingTarget = (totalPrice - currentTotal) > 0 ? (totalPrice - currentTotal) : 0;
+      // TODO: proportions logic should ideally be adjusted if guest dish takes up a lot, but for simplicity we re-calculate
+      // A more robust way would be to just target the prop.percentage of the *original* totalPrice.
       const targetAmount = totalPrice * (prop.percentage / 100);
-      let catDishes = dishes.filter(d => d.category === prop.category);
+      let catDishes = availableDishes.filter(d => d.category === prop.category);
       let catTotal = 0;
 
       while (catTotal < targetAmount && catDishes.length > 0) {
@@ -400,17 +467,21 @@ export default function App() {
         let dishPrice = dish.price;
 
         if (dish.category === '各客') {
-          if (standardPrice > 0 && standardPrice < 200) {
+          // 如果已经加过各客菜，或者餐标不够，不再添加
+          if (hasGuestDish || standardPrice < 200) {
             catDishes.splice(dishIndex, 1);
             continue;
           }
           dishPrice = dish.price * pax;
           finalDish = { ...dish, price: dishPrice };
+          hasGuestDish = true; // 记录已选各客菜
         }
 
-        if (catTotal + dishPrice <= targetAmount + 50) {
+        if (currentTotal + dishPrice <= maxTotalPrice) {
           newMenu.push(finalDish);
           catTotal += dishPrice;
+          currentTotal += dishPrice;
+          catDishes.splice(dishIndex, 1); // 避免重复选同一道菜
         } else break;
       }
     });
