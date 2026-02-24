@@ -134,27 +134,35 @@ export default function App() {
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
 
   // Fetch data from server on mount or login
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const skipNextSync = useRef(true);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         const res = await fetch('/api/data');
         const data = await res.json();
+        skipNextSync.current = true;
         if (data) {
           if (data.rooms) setRooms(data.rooms);
           if (data.dishes) setDishes(data.dishes);
           if (data.reservations) setReservations(data.reservations);
           if (data.categories) setCategories(data.categories);
         }
+        setIsDataLoaded(true);
+        setTimeout(() => skipNextSync.current = false, 100);
       } catch (err) {
         console.error("Failed to fetch data:", err);
+        setIsDataLoaded(true); // Stop blocking even on error
       }
     };
     fetchData();
   }, [isLoggedIn]);
 
   // Sync data to server on changes
+  // Sync data to server on changes
   useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn || !isDataLoaded || skipNextSync.current) return;
     const syncData = async (retries = 3) => {
       for (let i = 0; i < retries; i++) {
         try {
@@ -181,7 +189,7 @@ export default function App() {
     // Debounce sync
     const timer = setTimeout(syncData, 1000);
     return () => clearTimeout(timer);
-  }, [rooms, dishes, reservations, categories, isLoggedIn]);
+  }, [rooms, dishes, reservations, categories, isLoggedIn, isDataLoaded]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,9 +287,20 @@ export default function App() {
 
     const shuffledDishes = [...dishes].sort(() => Math.random() - 0.5);
     for (const dish of shuffledDishes) {
-      if (middleTotal + dish.price <= targetForMiddle + 50) {
-        middleDishes.push(dish);
-        middleTotal += dish.price;
+      let finalDish = dish;
+      let dishPrice = dish.price;
+
+      if (dish.category === '各客') {
+        if (res.standardPrice < 200) {
+          continue;
+        }
+        dishPrice = dish.price * pax;
+        finalDish = { ...dish, price: dishPrice };
+      }
+
+      if (middleTotal + dishPrice <= targetForMiddle + 50) {
+        middleDishes.push(finalDish);
+        middleTotal += dishPrice;
       }
       if (middleTotal >= targetForMiddle - 50) break;
     }
@@ -325,21 +344,34 @@ export default function App() {
     setConfirmDelete(null);
   };
 
-  const autoGenerateMenu = (totalPrice: number) => {
+  const autoGenerateMenu = (totalPrice: number, standardPrice: number = 0, pax: number = 1) => {
     // Simple logic: pick dishes based on proportions and price
     const newMenu: Dish[] = [];
-    let currentTotal = 0;
 
     proportions.forEach(prop => {
       const targetAmount = totalPrice * (prop.percentage / 100);
-      const catDishes = dishes.filter(d => d.category === prop.category);
+      let catDishes = dishes.filter(d => d.category === prop.category);
       let catTotal = 0;
 
       while (catTotal < targetAmount && catDishes.length > 0) {
-        const dish = catDishes[Math.floor(Math.random() * catDishes.length)];
-        if (catTotal + dish.price <= targetAmount + 50) {
-          newMenu.push(dish);
-          catTotal += dish.price;
+        const dishIndex = Math.floor(Math.random() * catDishes.length);
+        const dish = catDishes[dishIndex];
+
+        let finalDish = dish;
+        let dishPrice = dish.price;
+
+        if (dish.category === '各客') {
+          if (standardPrice > 0 && standardPrice < 200) {
+            catDishes.splice(dishIndex, 1);
+            continue;
+          }
+          dishPrice = dish.price * pax;
+          finalDish = { ...dish, price: dishPrice };
+        }
+
+        if (catTotal + dishPrice <= targetAmount + 50) {
+          newMenu.push(finalDish);
+          catTotal += dishPrice;
         } else break;
       }
     });
