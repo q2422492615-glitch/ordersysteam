@@ -777,7 +777,11 @@ export default function App() {
                       }}
                     >
                       <span className="text-lg font-bold">{dish.name}</span>
-                      <span className="text-base text-slate-500">¥{dish.price}</span>
+                      <span className="text-base text-slate-500">
+                        {dish.category === '各客'
+                          ? `${selectedRes.pax}位 × ¥${dish.price / selectedRes.pax} = ¥${dish.price}`
+                          : `¥${dish.price}`}
+                      </span>
                     </div>
                     <button
                       onClick={(e) => {
