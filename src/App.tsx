@@ -1149,11 +1149,62 @@ export default function App() {
           </div>
           <button
             onClick={() => {
+              if (!editingDish?.name?.trim()) {
+                addToast('请输入菜品名称', 'error');
+                return;
+              }
+
+              const normalizedName = editingDish.name.trim();
+
+              // Helper function for string similarity (Dice's Coefficient approximation for Chinese chars)
+              const getSimilarity = (s1: string, s2: string) => {
+                if (s1 === s2) return 1.0;
+                if (s1.length < 2 || s2.length < 2) return 0.0;
+
+                let bigrams1 = new Set();
+                for (let i = 0; i < s1.length - 1; i++) {
+                  bigrams1.add(s1.substring(i, i + 2));
+                }
+                let bigrams2 = new Set();
+                for (let i = 0; i < s2.length - 1; i++) {
+                  bigrams2.add(s2.substring(i, i + 2));
+                }
+
+                let intersection = 0;
+                for (let item of bigrams1) {
+                  if (bigrams2.has(item)) intersection++;
+                }
+
+                return (2.0 * intersection) / (bigrams1.size + bigrams2.size);
+              };
+
+              // 检查完全重复 (即使是在编辑模式，如果改成了已有的其他菜名也要拦截)
+              const isExactDuplicate = dishes.some(d => d.name === normalizedName && d.id !== editingDish.id);
+              if (isExactDuplicate) {
+                addToast('该菜名已存在，无法重复添加', 'error');
+                return;
+              }
+
+              // 检查 80% 相似度 (只在新增时或者改名时检查)
+              if (!editingDish.id || dishes.find(d => d.id === editingDish.id)?.name !== normalizedName) {
+                const similarDishes = dishes.filter(d =>
+                  d.id !== editingDish.id && getSimilarity(d.name, normalizedName) >= 0.8
+                );
+
+                if (similarDishes.length > 0) {
+                  const similarNames = similarDishes.map(d => d.name).join('、');
+                  const confirmed = window.confirm(`发现已存在相似菜品：【${similarNames}】。\n确定要继续添加/保存吗？`);
+                  if (!confirmed) {
+                    return;
+                  }
+                }
+              }
+
               if (editingDish?.id) {
-                setDishes(prev => prev.map(d => d.id === editingDish.id ? editingDish as Dish : d));
+                setDishes(prev => prev.map(d => d.id === editingDish.id ? { ...editingDish, name: normalizedName } as Dish : d));
                 addToast('菜品已更新');
               } else {
-                setDishes(prev => [...prev, { ...editingDish, id: 'd' + Date.now(), tags: [] } as Dish]);
+                setDishes(prev => [...prev, { ...editingDish, name: normalizedName, id: 'd' + Date.now(), tags: [] } as Dish]);
                 addToast('菜品已创建');
               }
               setEditingDish(null);
