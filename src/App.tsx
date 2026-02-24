@@ -621,7 +621,7 @@ export default function App() {
               return (
                 <div
                   key={room.id}
-                  onClick={() => !res && setEditingReservation({ roomId: room.id, date: selectedDate, period: activePeriod, pax: 2, standardPrice: 100, totalPrice: 200 })}
+                  onClick={() => !res && setEditingReservation({ roomId: room.id, date: selectedDate, period: activePeriod })}
                   className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between cursor-pointer hover:border-primary/50 transition-all"
                 >
                   <div className="flex items-center gap-3">
@@ -966,7 +966,7 @@ export default function App() {
 
           {/* Floating Action Button */}
           <button
-            onClick={() => setEditingReservation({ date: new Date().toISOString().split('T')[0], period: 'lunch', pax: 2, standardPrice: 100, totalPrice: 200 })}
+            onClick={() => setEditingReservation({ date: new Date().toISOString().split('T')[0], period: 'lunch' })}
             className="fixed bottom-24 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-xl flex items-center justify-center z-40 hover:scale-110 active:scale-95 transition-all"
           >
             <Plus className="w-8 h-8" />
@@ -1035,15 +1035,17 @@ export default function App() {
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 uppercase">人数</label>
               <input type="number" required value={editingReservation?.pax || ''} onChange={e => {
-                const pax = parseInt(e.target.value);
-                setEditingReservation(prev => ({ ...prev, pax, totalPrice: pax * (prev?.standardPrice || 0) }));
+                const val = e.target.value;
+                const pax = val ? parseInt(val) : undefined;
+                setEditingReservation(prev => ({ ...prev, pax, totalPrice: (pax || 0) * (prev?.standardPrice || 0) }));
               }} className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 uppercase">餐标 (每人)</label>
               <input type="number" required value={editingReservation?.standardPrice || ''} onChange={e => {
-                const standardPrice = parseInt(e.target.value);
-                setEditingReservation(prev => ({ ...prev, standardPrice, totalPrice: (prev?.pax || 0) * standardPrice }));
+                const val = e.target.value;
+                const standardPrice = val ? parseInt(val) : undefined;
+                setEditingReservation(prev => ({ ...prev, standardPrice, totalPrice: (prev?.pax || 0) * (standardPrice || 0) }));
               }} className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
           </div>
