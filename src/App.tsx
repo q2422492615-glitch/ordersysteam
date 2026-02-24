@@ -182,7 +182,7 @@ export default function App() {
         // Rooms sync
         for (const room of rooms) {
           await supabase.from('rooms').upsert({
-            id: room.id.startsWith('r') ? undefined : room.id, // Only send UUIDs or omit for new
+            id: room.id, // Clientside UUID
             name: room.name,
             capacity: room.capacity
           }, { onConflict: 'id' }).select();
@@ -196,7 +196,7 @@ export default function App() {
         // Dishes sync
         for (const dish of dishes) {
           await supabase.from('dishes').upsert({
-            id: dish.id.startsWith('d') ? undefined : dish.id,
+            id: dish.id,
             name: dish.name,
             price: dish.price,
             category_name: dish.category,
@@ -207,7 +207,7 @@ export default function App() {
         // Reservations sync
         for (const res of reservations) {
           await supabase.from('reservations').upsert({
-            id: res.id.startsWith('res') ? undefined : res.id,
+            id: res.id,
             room_id: res.roomId,
             customer_name: res.customerName,
             phone: res.phone || '',
@@ -289,7 +289,7 @@ export default function App() {
       setReservations(prev => prev.map(r => r.id === res.id ? res : r));
       addToast('预订已更新');
     } else {
-      const newRes = { ...res, id: 'res_' + crypto.randomUUID(), status: 'pending' as const, menu: [] };
+      const newRes = { ...res, id: crypto.randomUUID(), status: 'pending' as const, menu: [] };
       setReservations(prev => [...prev, newRes]);
       addToast('预订已创建');
     }
@@ -1121,7 +1121,7 @@ export default function App() {
                 setRooms(prev => prev.map(r => r.id === editingRoom.id ? editingRoom as Room : r));
                 addToast('包厢已更新');
               } else {
-                setRooms(prev => [...prev, { ...editingRoom, id: 'r' + Date.now() } as Room]);
+                setRooms(prev => [...prev, { ...editingRoom, id: crypto.randomUUID() } as Room]);
                 addToast('包厢已创建');
               }
               setEditingRoom(null);
@@ -1208,7 +1208,7 @@ export default function App() {
                 setDishes(prev => prev.map(d => d.id === editingDish.id ? { ...editingDish, name: normalizedName } as Dish : d));
                 addToast('菜品已更新');
               } else {
-                setDishes(prev => [...prev, { ...editingDish, name: normalizedName, id: 'd' + Date.now(), tags: [] } as Dish]);
+                setDishes(prev => [...prev, { ...editingDish, name: normalizedName, id: crypto.randomUUID(), tags: [] } as Dish]);
                 addToast('菜品已创建');
               }
               setEditingDish(null);
