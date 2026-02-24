@@ -289,7 +289,7 @@ export default function App() {
       setReservations(prev => prev.map(r => r.id === res.id ? res : r));
       addToast('预订已更新');
     } else {
-      const newRes = { ...res, id: 'res' + Date.now(), status: 'pending' as const, menu: [] };
+      const newRes = { ...res, id: 'res_' + crypto.randomUUID(), status: 'pending' as const, menu: [] };
       setReservations(prev => [...prev, newRes]);
       addToast('预订已创建');
     }
