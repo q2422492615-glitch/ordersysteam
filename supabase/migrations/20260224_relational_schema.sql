@@ -3,7 +3,15 @@
 -- 替换旧版本 app_data 单体 JSON 的方案
 -- ============================================
 
--- 1. 包厢表 (Rooms)
+-- 1. 用户表：存储登录账户 (From init.sql)
+CREATE TABLE IF NOT EXISTS users (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  username text UNIQUE NOT NULL,
+  password text NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+-- 2. 包厢表 (Rooms)
 CREATE TABLE IF NOT EXISTS rooms (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -63,7 +71,12 @@ CREATE POLICY "Allow all on categories" ON categories FOR ALL USING (true) WITH 
 CREATE POLICY "Allow all on dishes" ON dishes FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on reservations" ON reservations FOR ALL USING (true) WITH CHECK (true);
 
+-- 插入默认管理员账户
+INSERT INTO users (username, password)
+VALUES ('hyxy', 'hyxy123')
+ON CONFLICT (username) DO NOTHING;
+
 -- 插入默认的分类
 INSERT INTO categories (name) VALUES 
-  ('冷菜'), ('热菜'), ('汤羹'), ('主食'), ('点心'), ('水果'), ('海鲜'), ('各客'), ('饮品')
+ ('家禽'), ('河鲜'), ('牛羊肉'), ('海鲜'), ('火锅菜品'), ('猪肉'), ('小炒'), ('各客'), ('其他')
 ON CONFLICT (name) DO NOTHING;
