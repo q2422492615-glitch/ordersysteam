@@ -71,6 +71,9 @@ CREATE POLICY "Allow all on categories" ON categories FOR ALL USING (true) WITH 
 CREATE POLICY "Allow all on dishes" ON dishes FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on reservations" ON reservations FOR ALL USING (true) WITH CHECK (true);
 
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on users" ON users FOR ALL USING (true) WITH CHECK (true);
+
 -- 插入默认管理员账户
 INSERT INTO users (username, password)
 VALUES ('hyxy', 'hyxy123')

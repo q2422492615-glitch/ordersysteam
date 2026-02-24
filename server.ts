@@ -47,10 +47,14 @@ app.post("/api/login", async (req, res) => {
     .eq('password', password)
     .single();
 
+  if (error) {
+    console.error("Login Supabase Error:", error);
+  }
+
   if (data) {
     res.json({ token: "admin-token", username: data.username });
   } else {
-    res.status(401).json({ error: "Invalid credentials" });
+    res.status(401).json({ error: "Invalid credentials", details: error ? error.message : "No data found" });
   }
 });
 
