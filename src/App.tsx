@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ViewType, Reservation, Room, Dish, Period, CategoryProportion, ToastMessage } from './types';
+import { supabase } from './supabase';
 import { GoogleGenAI } from "@google/genai";
 import { toPng } from 'html-to-image';
 import { useRef } from 'react';
@@ -140,15 +141,29 @@ export default function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/data');
-        const data = await res.json();
+        const { data: roomsData } = await supabase.from('rooms').select('*');
+        const { data: dishesData } = await supabase.from('dishes').select('*');
+        const { data: reservationsData } = await supabase.from('reservations').select('*');
+        const { data: categoriesData } = await supabase.from('categories').select('*');
+
         skipNextSync.current = true;
-        if (data) {
-          if (data.rooms) setRooms(data.rooms);
-          if (data.dishes) setDishes(data.dishes);
-          if (data.reservations) setReservations(data.reservations);
-          if (data.categories) setCategories(data.categories);
+
+        if (roomsData) setRooms(roomsData);
+        if (dishesData) {
+          // Map snake_case or specific struct cases if necessary, currently matching Dish interface
+          setDishes(dishesData.map(d => ({
+            id: d.id, name: d.name, price: Number(d.price), category: d.category_name, tags: d.tags || []
+          })));
         }
+        if (reservationsData) {
+          setReservations(reservationsData.map(r => ({
+            id: r.id, roomId: r.room_id, customerName: r.customer_name, phone: r.phone,
+            pax: r.pax, standardPrice: Number(r.standard_price), totalPrice: Number(r.total_price),
+            period: r.period, date: r.reservation_date, notes: r.notes, status: r.status, menu: r.menu
+          })));
+        }
+        if (categoriesData) setCategories(categoriesData.map(c => c.name));
+
         setIsDataLoaded(true);
         setTimeout(() => skipNextSync.current = false, 100);
       } catch (err) {
@@ -160,34 +175,58 @@ export default function App() {
   }, [isLoggedIn]);
 
   // Sync data to server on changes
-  // Sync data to server on changes
   useEffect(() => {
     if (!isLoggedIn || !isDataLoaded || skipNextSync.current) return;
-    const syncData = async (retries = 3) => {
-      for (let i = 0; i < retries; i++) {
-        try {
-          const res = await fetch('/api/data', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('admin-token')}`
-            },
-            body: JSON.stringify({ rooms, dishes, reservations, categories })
-          });
-          if (res.ok) return; // success, stop retrying
-          throw new Error(`Server responded with ${res.status}`);
-        } catch (err) {
-          console.error(`Sync attempt ${i + 1} failed:`, err);
-          if (i < retries - 1) {
-            await new Promise(r => setTimeout(r, 2000 * (i + 1))); // wait 2s, 4s before retrying
-          } else {
-            addToast('数据同步失败，请检查网络连接', 'error');
-          }
+    const syncData = async () => {
+      try {
+        // Rooms sync
+        for (const room of rooms) {
+          await supabase.from('rooms').upsert({
+            id: room.id.startsWith('r') ? undefined : room.id, // Only send UUIDs or omit for new
+            name: room.name,
+            capacity: room.capacity
+          }, { onConflict: 'id' }).select();
         }
+
+        // Categories sync
+        for (const cat of categories) {
+          await supabase.from('categories').upsert({ name: cat }, { onConflict: 'name' });
+        }
+
+        // Dishes sync
+        for (const dish of dishes) {
+          await supabase.from('dishes').upsert({
+            id: dish.id.startsWith('d') ? undefined : dish.id,
+            name: dish.name,
+            price: dish.price,
+            category_name: dish.category,
+            tags: dish.tags
+          }, { onConflict: 'id' });
+        }
+
+        // Reservations sync
+        for (const res of reservations) {
+          await supabase.from('reservations').upsert({
+            id: res.id.startsWith('res') ? undefined : res.id,
+            room_id: res.roomId,
+            customer_name: res.customerName,
+            phone: res.phone || '',
+            pax: res.pax,
+            standard_price: res.standardPrice,
+            total_price: res.totalPrice,
+            period: res.period,
+            reservation_date: res.date,
+            notes: res.notes || '',
+            status: res.status,
+            menu: res.menu || []
+          }, { onConflict: 'id' });
+        }
+      } catch (err) {
+        console.error("Sync partial failure:", err);
       }
     };
     // Debounce sync
-    const timer = setTimeout(syncData, 1000);
+    const timer = setTimeout(syncData, 1500);
     return () => clearTimeout(timer);
   }, [rooms, dishes, reservations, categories, isLoggedIn, isDataLoaded]);
 

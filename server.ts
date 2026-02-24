@@ -54,35 +54,6 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-app.get("/api/data", async (req, res) => {
-  const { data, error } = await supabase
-    .from('app_data')
-    .select('data')
-    .eq('id', 1)
-    .single();
-
-  if (error && error.code !== 'PGRST116') { // PGRST116 is 'not found'
-    console.error("Error fetching data:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-    return;
-  }
-
-  res.json(data ? data.data : null);
-});
-
-app.post("/api/data", auth, async (req, res) => {
-  const payload = req.body;
-  const { error } = await supabase
-    .from('app_data')
-    .upsert({ id: 1, data: payload }, { onConflict: 'id' });
-
-  if (error) {
-    console.error("Error saving data:", error);
-    res.status(500).json({ error: "Failed to save data" });
-    return;
-  }
-  res.json({ success: true });
-});
 
 // Vite middleware for local development ONLY
 if (process.env.NODE_ENV !== "production" && process.env.VERCEL !== "1") {
